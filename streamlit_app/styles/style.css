@@ -1,0 +1,116 @@
+
+/* Main layout */
+.main {
+    padding: 2rem;
+}
+
+/* Page title */
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #0e1117;
+}
+
+/* Card style */
+.card {
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Authentication container */
+.auth-container {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+/* Button styling */
+.stButton > button {
+    width: 100%;
+    border-radius: 5px;
+    height: 3rem;
+    font-weight: 600;
+}
+
+/* Sidebar navigation */
+.sidebar-nav {
+    padding: 1rem;
+}
+
+/* Interview avatar */
+.interview-avatar {
+    font-size: 3rem;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+/* Recording pulse effect */
+.pulse {
+    animation: pulse 2s infinite;
+    text-align: center;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Interview result scores */
+.result-score {
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+}
+
+.score-good {
+    color: #3CB371;
+    background-color: rgba(60, 179, 113, 0.1);
+}
+
+.score-medium {
+    color: #FFA500;
+    background-color: rgba(255, 165, 0, 0.1);
+}
+
+.score-bad {
+    color: #DC143C;
+    background-color: rgba(220, 20, 60, 0.1);
+}
+
+/* Custom expander styling */
+.streamlit-expanderHeader {
+    font-weight: 600;
+    color: #0e1117;
+}
+
+/* Make text areas look better */
+.stTextArea textarea {
+    border-radius: 5px;
+}
+
+/* File uploader */
+.stFileUploader div {
+    border-radius: 5px;
+}
+
+/* Make sure all inputs are consistent */
+.stTextInput input {
+    border-radius: 5px;
+}
