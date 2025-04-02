@@ -16,14 +16,14 @@ This is a Streamlit-based application for conducting AI-powered job interviews, 
 3. **AI Interview**
    - Simulated interview experience with an AI interviewer
    - Realistic question and answer interface
-   - Video/audio controls simulation
+   - Audio input simulation
 
 4. **Results Analysis**
    - Comprehensive feedback on interview performance
    - Skill assessment with scores
    - Question-by-question feedback
    - Strengths and areas for improvement
-   - Option to download and share results
+   - Option to download reports
 
 ## Setup Instructions
 

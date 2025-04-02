@@ -1,15 +1,15 @@
 
 import streamlit as st
-import os
 import time
-import random
+import os
 from PIL import Image
-from datetime import datetime
+import base64
+import re
 
-# Set page configuration
+# Configure the page
 st.set_page_config(
     page_title="AI Interview Assistant",
-    page_icon="👔",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -17,492 +17,501 @@ st.set_page_config(
 # Initialize session state variables
 if "user" not in st.session_state:
     st.session_state.user = None
+if "page" not in st.session_state:
+    st.session_state.page = "login"
 if "cv_uploaded" not in st.session_state:
     st.session_state.cv_uploaded = False
-if "interview_started" not in st.session_state:
-    st.session_state.interview_started = False
 if "interview_completed" not in st.session_state:
     st.session_state.interview_completed = False
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "current_question_index" not in st.session_state:
-    st.session_state.current_question_index = 0
+if "interview_in_progress" not in st.session_state:
+    st.session_state.interview_in_progress = False
+if "interview_results" not in st.session_state:
+    st.session_state.interview_results = None
+if "questions" not in st.session_state:
+    st.session_state.questions = []
+if "current_question" not in st.session_state:
+    st.session_state.current_question = 0
+if "answers" not in st.session_state:
+    st.session_state.answers = []
 
-# Mock questions for the interview
-mock_questions = [
-    "Tell me about yourself and your background.",
-    "What are your greatest strengths and how have you applied them in your work?",
-    "Can you describe a challenging situation you faced at work and how you handled it?",
-    "Why are you interested in this position?",
-    "Where do you see yourself in 5 years?",
-    "Do you have any questions for me about the role or company?"
-]
+# Custom CSS to style the app
+def add_custom_css():
+    st.markdown("""
+    <style>
+        .main {
+            padding: 2rem;
+        }
+        .stButton > button {
+            width: 100%;
+            border-radius: 5px;
+            height: 3rem;
+            font-weight: 600;
+        }
+        .auth-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        .card {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: white;
+        }
+        .sidebar-nav {
+            padding: 1rem;
+        }
+        .interview-avatar {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        .result-score {
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-align: center;
+        }
+        .score-good {
+            color: #3CB371;
+        }
+        .score-medium {
+            color: #FFA500;
+        }
+        .score-bad {
+            color: #DC143C;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Mock skill scores for results page
-skill_scores = {
-    "Communication": 85,
-    "Technical Knowledge": 92,
-    "Problem Solving": 78,
-    "Cultural Fit": 88,
-    "Leadership": 72
-}
+# Navigation functions
+def navigate_to(page):
+    st.session_state.page = page
 
-# Mock feedback for results page
-question_feedback = [
-    {
-        "question": "Tell me about yourself and your background.",
-        "feedback": "Strong introduction with clear articulation of relevant experience. Could benefit from more concise delivery and focus on recent achievements."
-    },
-    {
-        "question": "What are your greatest strengths and how have you applied them in your work?",
-        "feedback": "Excellent examples provided that demonstrate both technical and soft skills. The connection between strengths and outcomes was well established."
-    },
-    {
-        "question": "Can you describe a challenging situation you faced at work and how you handled it?",
-        "feedback": "Good use of the STAR method to structure your response. Consider emphasizing the measurable results more clearly to showcase impact."
-    },
-    {
-        "question": "Why are you interested in this position?",
-        "feedback": "Demonstrated good research about the role and company. Could further highlight alignment between personal career goals and company mission."
-    },
-    {
-        "question": "Where do you see yourself in 5 years?",
-        "feedback": "Showed ambition while remaining realistic. Response could be strengthened by connecting long-term goals more explicitly to the current role."
-    }
-]
+# Authentication functions
+def login(email, password):
+    # In a real app, check credentials against a database
+    # This is a simplified demo implementation
+    if email and password: # For demo purposes, any non-empty credentials work
+        st.session_state.user = {
+            "email": email, 
+            "name": email.split('@')[0]
+        }
+        navigate_to("dashboard")
+        return True
+    return False
 
-# Custom CSS for styling
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-bottom: 1rem;
-        color: #1E88E5;
+def register(name, email, password, password_confirm):
+    # In a real app, save user to a database
+    if not name or not email or not password:
+        return False, "All fields are required"
+    
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        return False, "Please enter a valid email address"
+    
+    if password != password_confirm:
+        return False, "Passwords do not match"
+    
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters"
+    
+    # For demo purposes, successful registration always works
+    st.session_state.user = {
+        "email": email,
+        "name": name
     }
-    .sub-header {
-        font-size: 1.8rem;
-        font-weight: bold;
-        margin-bottom: 1rem;
-        color: #1E88E5;
-    }
-    .card {
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        background-color: #f8f9fa;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-    }
-    .message-ai {
-        background-color: #e3f2fd;
-        padding: 0.8rem;
-        border-radius: 0.5rem;
-        margin-bottom: 0.8rem;
-        display: inline-block;
-        max-width: 80%;
-    }
-    .message-user {
-        background-color: #bbdefb;
-        padding: 0.8rem;
-        border-radius: 0.5rem;
-        margin-bottom: 0.8rem;
-        display: inline-block;
-        max-width: 80%;
-        margin-left: auto;
-        text-align: right;
-    }
-    .stButton button {
-        background-color: #1E88E5;
-        color: white;
-        font-weight: bold;
-    }
-    .stProgress .st-bo {
-        background-color: #1E88E5;
-    }
-</style>
-""", unsafe_allow_html=True)
+    navigate_to("dashboard")
+    return True, "Registration successful"
 
-def main():
-    # Sidebar navigation
-    with st.sidebar:
-        st.image("https://img.icons8.com/color/96/000000/conference-call--v1.png", width=100)
-        st.title("AI Interview Assistant")
+def logout():
+    st.session_state.user = None
+    navigate_to("login")
+
+# CV Upload handling
+def handle_cv_upload(uploaded_file):
+    if uploaded_file is not None:
+        # In a real app, save the file to a database or file system
+        # For demo purposes, just mark as uploaded
+        st.session_state.cv_uploaded = True
+        return True
+    return False
+
+# Interview handling
+def start_interview():
+    st.session_state.interview_in_progress = True
+    st.session_state.current_question = 0
+    st.session_state.answers = []
+    
+    # Sample interview questions - in a real app, these would be generated by AI
+    st.session_state.questions = [
+        "Tell me about yourself and your background.",
+        "What are your strengths and weaknesses?",
+        "Why do you want to work for this company?",
+        "Describe a challenge you faced at work and how you solved it.",
+        "Where do you see yourself in five years?"
+    ]
+
+def submit_answer(answer):
+    if st.session_state.current_question < len(st.session_state.questions):
+        st.session_state.answers.append(answer)
         
-        if st.session_state.user:
-            st.success(f"Logged in as {st.session_state.user}")
-            if st.button("Logout"):
-                st.session_state.user = None
-                st.session_state.cv_uploaded = False
-                st.session_state.interview_started = False
-                st.session_state.interview_completed = False
-                st.session_state.messages = []
-                st.session_state.current_question_index = 0
-                st.experimental_rerun()
-        
-        st.markdown("---")
-        
-        if st.session_state.user:
-            menu = ["Dashboard", "Upload CV", "Interview", "Results"]
-            choice = st.radio("Navigation", menu)
+        # Move to next question or complete interview
+        if st.session_state.current_question == len(st.session_state.questions) - 1:
+            complete_interview()
         else:
-            menu = ["Login", "Sign Up"]
-            choice = st.radio("Navigation", menu)
-    
-    # Main content based on navigation choice
-    if choice == "Login":
-        display_login_page()
-    elif choice == "Sign Up":
-        display_signup_page()
-    elif choice == "Dashboard":
-        display_dashboard()
-    elif choice == "Upload CV":
-        display_upload_cv()
-    elif choice == "Interview":
-        display_interview()
-    elif choice == "Results":
-        display_results()
+            st.session_state.current_question += 1
 
-def display_login_page():
-    st.markdown('<p class="main-header">Sign In</p>', unsafe_allow_html=True)
+def complete_interview():
+    st.session_state.interview_completed = True
+    st.session_state.interview_in_progress = False
     
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Welcome Back")
-        st.markdown("Sign in to your account to continue with your interviews.")
-        
-        email = st.text_input("Email Address")
-        password = st.text_input("Password", type="password")
-        
-        col1_1, col1_2, col1_3 = st.columns([1, 1, 1])
-        with col1_2:
-            if st.button("Sign In"):
-                if email and password:  # Simple validation
-                    st.session_state.user = email.split('@')[0]  # Use username from email
-                    st.success("Login successful!")
-                    time.sleep(1)
-                    st.experimental_rerun()
-                else:
-                    st.error("Please enter both email and password")
-        
-        st.markdown("Don't have an account? Navigate to Sign Up from the sidebar.")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.image("https://img.icons8.com/color/480/000000/interviewer.png", width=300)
+    # Generate mock results - in a real app, this would be generated by AI
+    st.session_state.interview_results = {
+        "overall_score": 82,
+        "strengths": [
+            "Clear communication skills",
+            "Strong problem-solving approach",
+            "Good cultural fit with the company"
+        ],
+        "improvements": [
+            "Could provide more specific examples",
+            "Consider more structured responses for technical questions"
+        ],
+        "question_scores": [
+            {"question": st.session_state.questions[0], "score": 85, "feedback": "Good introduction, could have been more concise"},
+            {"question": st.session_state.questions[1], "score": 78, "feedback": "Honest assessment, should emphasize how you're addressing weaknesses"},
+            {"question": st.session_state.questions[2], "score": 90, "feedback": "Showed good research and enthusiasm for the company"},
+            {"question": st.session_state.questions[3], "score": 82, "feedback": "Good example, could highlight results more clearly"},
+            {"question": st.session_state.questions[4], "score": 75, "feedback": "Reasonable goals, could tie better to the role you're applying for"}
+        ]
+    }
+    navigate_to("results")
 
-def display_signup_page():
-    st.markdown('<p class="main-header">Create Account</p>', unsafe_allow_html=True)
+# Render functions for each page
+def render_login_page():
+    st.markdown("<h1 class='page-title'>AI Interview Assistant</h1>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 1])
+    st.markdown("<h2>Sign In</h2>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     
-    with col1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Join Our Platform")
-        st.markdown("Create an account to get started with AI-powered interviews.")
-        
-        name = st.text_input("Full Name")
-        email = st.text_input("Email Address")
-        password = st.text_input("Password", type="password")
-        confirm_password = st.text_input("Confirm Password", type="password")
-        
-        col1_1, col1_2, col1_3 = st.columns([1, 1, 1])
-        with col1_2:
-            if st.button("Sign Up"):
-                if name and email and password and confirm_password:
-                    if password == confirm_password:
-                        st.session_state.user = name
-                        st.success("Account created successfully!")
-                        time.sleep(1)
-                        st.experimental_rerun()
-                    else:
-                        st.error("Passwords do not match")
-                else:
-                    st.error("Please fill in all fields")
-        
-        st.markdown("Already have an account? Navigate to Login from the sidebar.")
-        st.markdown('</div>', unsafe_allow_html=True)
+    email = st.text_input("Email", key="login_email")
+    password = st.text_input("Password", type="password", key="login_password")
     
-    with col2:
-        st.image("https://img.icons8.com/color/480/000000/add-user-male.png", width=300)
+    if st.button("Sign In", key="login_button"):
+        if login(email, password):
+            st.success("Login successful!")
+            st.experimental_rerun()
+        else:
+            st.error("Invalid email or password")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<p>Don't have an account? <a href='#' onclick='STREAMLIT_COMPONENT.setComponentValue({value: \"signup\"})'>Sign up</a></p>", unsafe_allow_html=True)
+    
+    # Handle navigation from the link
+    if st.experimental_get_query_params().get("nav") == ["signup"]:
+        navigate_to("signup")
+        st.experimental_rerun()
+    
+    # Alternative button navigation
+    if st.button("Create an Account", key="goto_signup"):
+        navigate_to("signup")
+        st.experimental_rerun()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-def display_dashboard():
-    st.markdown(f'<p class="main-header">Dashboard</p>', unsafe_allow_html=True)
-    st.markdown(f"### Welcome, {st.session_state.user}!")
+def render_signup_page():
+    st.markdown("<h1 class='page-title'>AI Interview Assistant</h1>", unsafe_allow_html=True)
+    st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
     
+    st.markdown("<h2>Create an Account</h2>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    
+    name = st.text_input("Full Name", key="signup_name")
+    email = st.text_input("Email", key="signup_email")
+    password = st.text_input("Password", type="password", key="signup_password")
+    password_confirm = st.text_input("Confirm Password", type="password", key="signup_password_confirm")
+    
+    if st.button("Sign Up", key="signup_button"):
+        success, message = register(name, email, password, password_confirm)
+        if success:
+            st.success(message)
+            st.experimental_rerun()
+        else:
+            st.error(message)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<p>Already have an account? <a href='#' onclick='STREAMLIT_COMPONENT.setComponentValue({value: \"login\"})'>Sign in</a></p>", unsafe_allow_html=True)
+    
+    # Alternative button navigation
+    if st.button("Back to Login", key="goto_login"):
+        navigate_to("login")
+        st.experimental_rerun()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def render_dashboard():
+    st.markdown(f"<h1 class='page-title'>Dashboard</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p>Welcome, {st.session_state.user['name']}!</p>", unsafe_allow_html=True)
+    
+    # Create a 3-column layout for the dashboard cards
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.image("https://img.icons8.com/color/96/000000/upload-to-cloud--v1.png", width=50)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("### Upload CV")
-        st.markdown("Upload your resume for AI analysis before the interview.")
-        if st.button("Upload CV", key="dashboard_upload"):
-            st.session_state.cv_uploaded = False
+        st.markdown("Upload your resume for AI analysis before the interview")
+        if st.button("Upload CV", key="goto_upload"):
+            navigate_to("upload_cv")
             st.experimental_rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.image("https://img.icons8.com/color/96/000000/video-call--v1.png", width=50)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("### Start Interview")
-        st.markdown("Begin your AI-powered interview session.")
-        if st.button("Start Interview", key="dashboard_interview"):
-            if st.session_state.cv_uploaded:
-                st.session_state.interview_started = True
-                st.experimental_rerun()
-            else:
-                st.error("Please upload your CV first")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("Begin your AI-powered interview session")
+        if st.button("Start Interview", key="goto_interview"):
+            navigate_to("interview")
+            st.experimental_rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
     
     with col3:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.image("https://img.icons8.com/color/96/000000/check-all--v1.png", width=50)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("### Interview Results")
-        st.markdown("View feedback and results from your previous interviews.")
-        if st.button("View Results", key="dashboard_results"):
+        st.markdown("View feedback and results from your previous interviews")
+        if st.button("View Results", key="goto_results"):
             if st.session_state.interview_completed:
+                navigate_to("results")
                 st.experimental_rerun()
             else:
-                st.error("Complete an interview to see results")
-        st.markdown('</div>', unsafe_allow_html=True)
+                st.warning("You need to complete an interview first")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Logout button
+    if st.button("Sign Out"):
+        logout()
+        st.experimental_rerun()
 
-def display_upload_cv():
-    st.markdown('<p class="main-header">Upload Your CV</p>', unsafe_allow_html=True)
+def render_upload_cv():
+    st.markdown("<h1 class='page-title'>Upload CV</h1>", unsafe_allow_html=True)
+    st.markdown("<p>Upload your resume or CV for analysis before your interview</p>", unsafe_allow_html=True)
     
-    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Choose your CV file", type=["pdf", "docx", "doc"])
     
-    if not st.session_state.cv_uploaded:
-        st.markdown("### Resume Upload")
-        st.markdown("Upload your CV or resume so our AI can personalize your interview experience")
-        
-        uploaded_file = st.file_uploader("Choose a file", type=["pdf", "docx", "doc"])
-        
+    upload_description = st.text_area("Tell us about the position you're applying for", 
+                                    height=100,
+                                    placeholder="e.g., Senior Software Engineer with 5 years of experience in Python...")
+    
+    if st.button("Upload and Analyze"):
         if uploaded_file is not None:
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                if st.button("Process CV"):
-                    with st.spinner("Uploading..."):
-                        progress_bar = st.progress(0)
-                        for percent_complete in range(0, 101, 10):
-                            time.sleep(0.1)
-                            progress_bar.progress(percent_complete)
-                    
-                    with st.spinner("Analyzing your resume..."):
-                        time.sleep(2)
-                    
-                    st.success("CV uploaded and processed successfully!")
+            with st.spinner('Analyzing your CV...'):
+                time.sleep(2)  # Simulate processing time
+                success = handle_cv_upload(uploaded_file)
+                if success:
+                    st.success("CV uploaded and analyzed successfully!")
                     st.session_state.cv_uploaded = True
-                    st.experimental_rerun()
-    else:
-        st.success("CV has been uploaded and processed!")
-        st.image("https://img.icons8.com/color/96/000000/checked--v1.png", width=50)
-        st.markdown("### Resume Analysis Complete")
-        st.markdown("Your CV has been analyzed and is ready for the interview.")
+        else:
+            st.error("Please upload a CV file")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Show a preview of the analysis if CV is uploaded
+    if st.session_state.cv_uploaded:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("### CV Analysis Results")
+        st.markdown("Here's what our AI found in your CV:")
         
-        if st.button("Start Interview Now"):
-            st.session_state.interview_started = True
-            st.experimental_rerun()
+        # Mock analysis results
+        st.markdown("**Skills detected:**")
+        st.markdown("- Python Programming (5 years)")
+        st.markdown("- Data Analysis (3 years)")
+        st.markdown("- Project Management (2 years)")
         
-        if st.button("Upload a Different CV"):
-            st.session_state.cv_uploaded = False
-            st.experimental_rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def display_interview():
-    st.markdown('<p class="main-header">AI Interview Session</p>', unsafe_allow_html=True)
-    
-    # Check if CV has been uploaded
-    if not st.session_state.cv_uploaded:
-        st.warning("Please upload your CV before starting the interview")
-        if st.button("Go to CV Upload"):
-            st.experimental_rerun()
-        return
-    
-    # Initialize interview
-    if not st.session_state.interview_started or len(st.session_state.messages) == 0:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Ready for Your Interview?")
-        st.markdown("You'll be interviewed by our AI assistant who will ask questions related to your experience and skills.")
-        st.markdown("Make sure your camera and microphone are working properly before starting.")
+        st.markdown("**Education:**")
+        st.markdown("- Bachelor's in Computer Science (2018)")
         
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            if st.button("Start Interview Session"):
-                st.session_state.interview_started = True
-                st.session_state.messages = []
-                
-                # Add initial greeting
-                ai_message = "Hello! I'm your AI interviewer today. I'll be asking you a series of questions to learn more about your skills and experience. Are you ready to begin?"
-                st.session_state.messages.append({"role": "ai", "content": ai_message})
-                st.experimental_rerun()
+        st.markdown("**Recommendation:**")
+        st.info("Your CV shows strong technical skills. The interview will focus on your problem-solving abilities and team collaboration experiences.")
         
-        st.markdown('</div>', unsafe_allow_html=True)
-        return
+        st.markdown("</div>", unsafe_allow_html=True)
     
-    # Display interview interface
-    col1, col2 = st.columns([3, 1])
-    
+    # Navigation buttons
+    col1, col2 = st.columns(2)
     with col1:
-        # Display chat messages
-        for message in st.session_state.messages:
-            if message["role"] == "ai":
-                st.markdown(f'<div class="message-ai">{message["content"]}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="message-user">{message["content"]}</div>', unsafe_allow_html=True)
-        
-        # User input
-        if st.session_state.current_question_index <= len(mock_questions) and not st.session_state.interview_completed:
-            user_input = st.text_input("Your response:", key="user_input")
-            
-            col1_1, col1_2, col1_3 = st.columns([3, 1, 1])
-            with col1_3:
-                if st.button("Send") and user_input:
-                    # Add user message
-                    st.session_state.messages.append({"role": "user", "content": user_input})
-                    
-                    # Add AI response if there are more questions
-                    if st.session_state.current_question_index < len(mock_questions):
-                        ai_message = mock_questions[st.session_state.current_question_index]
-                        st.session_state.messages.append({"role": "ai", "content": ai_message})
-                        st.session_state.current_question_index += 1
-                    else:
-                        # End of interview
-                        ai_message = "Thank you for participating in this interview. We've now completed all the questions. I'll analyze your responses and provide feedback. You can view your results now."
-                        st.session_state.messages.append({"role": "ai", "content": ai_message})
-                        st.session_state.interview_completed = True
-                    
-                    st.experimental_rerun()
-        
-        # End interview button
-        if st.session_state.interview_completed:
-            if st.button("View Results"):
-                st.experimental_rerun()
-    
+        if st.button("Back to Dashboard"):
+            navigate_to("dashboard")
+            st.experimental_rerun()
     with col2:
-        # Camera/video preview
-        st.markdown("### Camera Preview")
-        st.image("https://img.icons8.com/color/96/000000/video-call--v1.png", width=100)
-        st.markdown("(Camera access would be requested here)")
-        
-        # Audio controls
-        st.markdown("### Audio Controls")
-        col2_1, col2_2 = st.columns(2)
-        with col2_1:
-            st.button("🎤 Mic")
-        with col2_2:
-            st.button("🔇 Mute")
+        if st.button("Proceed to Interview"):
+            navigate_to("interview")
+            st.experimental_rerun()
 
-def display_results():
-    st.markdown('<p class="main-header">Interview Results</p>', unsafe_allow_html=True)
+def render_interview():
+    st.markdown("<h1 class='page-title'>AI Interview</h1>", unsafe_allow_html=True)
+    
+    if not st.session_state.interview_in_progress:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("### Ready to start your interview?")
+        st.markdown("""
+        This AI interview will ask you a series of questions about your experience and skills.
+        Answer as you would in a real interview. Your responses will be analyzed to provide feedback.
+        
+        Tips:
+        - Speak clearly and confidently
+        - Provide specific examples from your experience
+        - Be honest and authentic
+        - Structure your answers using the STAR method (Situation, Task, Action, Result)
+        """)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Back to Dashboard"):
+                navigate_to("dashboard")
+                st.experimental_rerun()
+        with col2:
+            if st.button("Start Interview Now"):
+                start_interview()
+                st.experimental_rerun()
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    else:
+        # Show the interview interface
+        st.markdown("<div class='interview-avatar'>🤖</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        current_q = st.session_state.current_question
+        st.markdown(f"### Question {current_q + 1} of {len(st.session_state.questions)}")
+        st.markdown(f"{st.session_state.questions[current_q]}")
+        
+        # Answer input
+        answer = st.text_area("Your answer:", height=150, key=f"answer_{current_q}")
+        
+        # Recording simulation (just for UI effect)
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if answer:
+                if st.button("Submit Answer"):
+                    with st.spinner('Processing your answer...'):
+                        time.sleep(1)  # Simulate processing
+                        submit_answer(answer)
+                        st.experimental_rerun()
+        with col2:
+            st.markdown("<div class='pulse'>🎤 Listening...</div>", unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Show progress
+        progress = (current_q + 1) / len(st.session_state.questions)
+        st.progress(progress)
+        
+        # Option to end interview early
+        if st.button("End Interview Early"):
+            if len(st.session_state.answers) > 0:  # Ensure at least one question was answered
+                complete_interview()
+                st.experimental_rerun()
+            else:
+                st.error("Please answer at least one question before ending the interview")
+
+def render_results():
+    st.markdown("<h1 class='page-title'>Interview Results</h1>", unsafe_allow_html=True)
     
     if not st.session_state.interview_completed:
-        st.warning("You need to complete an interview first")
+        st.warning("You haven't completed an interview yet. Please complete an interview to see results.")
         if st.button("Go to Interview"):
+            navigate_to("interview")
             st.experimental_rerun()
         return
     
-    # Calculate overall score
-    overall_score = sum(skill_scores.values()) // len(skill_scores)
+    results = st.session_state.interview_results
     
-    # Display overall performance
-    col1, col2 = st.columns([1, 2])
+    # Overall score card
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("### Overall Assessment")
+    
+    score = results["overall_score"]
+    score_class = "score-good" if score >= 80 else "score-medium" if score >= 60 else "score-bad"
+    
+    st.markdown(f"<div class='result-score {score_class}'>{score}/100</div>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Overall Performance")
-        
-        # Display score in a circle
-        html_score = f"""
-        <div style="display: flex; justify-content: center; margin: 20px 0;">
-            <div style="width: 150px; height: 150px; border-radius: 50%; background-color: #e3f2fd; 
-                        display: flex; align-items: center; justify-content: center; 
-                        border: 10px solid #1E88E5;">
-                <span style="font-size: 2.5rem; font-weight: bold; color: #1E88E5;">{overall_score}%</span>
-            </div>
-        </div>
-        """
-        st.markdown(html_score, unsafe_allow_html=True)
-        
-        # Display rating text
-        if overall_score >= 90:
-            rating = "Excellent"
-        elif overall_score >= 80:
-            rating = "Very Good"
-        elif overall_score >= 70:
-            rating = "Good"
-        elif overall_score >= 60:
-            rating = "Satisfactory"
-        else:
-            rating = "Needs Improvement"
-        
-        st.markdown(f"<h3 style='text-align: center;'>{rating}</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center;'>Based on your responses and communication during the interview</p>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("#### Strengths")
+        for strength in results["strengths"]:
+            st.markdown(f"- {strength}")
     
     with col2:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Skill Assessment")
-        
-        for skill, score in skill_scores.items():
-            st.markdown(f"**{skill}**: {score}%")
-            st.progress(score/100)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("#### Areas for Improvement")
+        for improvement in results["improvements"]:
+            st.markdown(f"- {improvement}")
     
-    # Question analysis
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("### Question Analysis")
+    st.markdown("</div>", unsafe_allow_html=True)
     
-    for i, feedback in enumerate(question_feedback):
-        with st.expander(feedback["question"]):
-            st.markdown(f"**Feedback**: {feedback['feedback']}")
+    # Detailed question feedback
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("### Question-by-Question Feedback")
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    for i, q_result in enumerate(results["question_scores"]):
+        with st.expander(f"Question {i+1}: {q_result['question'][:50]}..."):
+            st.markdown(f"**Your Answer:** {st.session_state.answers[i]}")
+            st.markdown(f"**Score:** {q_result['score']}/100")
+            st.markdown(f"**Feedback:** {q_result['feedback']}")
     
-    # Summary and recommendations
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("### Summary & Recommendations")
+    st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("""
-    You demonstrated strong communication skills and technical knowledge throughout the interview. 
-    Your responses were generally well-structured and showcased relevant experience.
+    # Download report button (simulated)
+    if st.download_button("Download Full Report (PDF)", 
+                          data="Sample report content",
+                          file_name="interview_report.pdf",
+                          mime="application/pdf"):
+        st.success("Report downloaded successfully!")
     
-    **Strengths:**
-    - Excellent articulation of technical concepts
-    - Strong examples of past achievements
-    - Good understanding of role requirements
-    - Positive attitude and engagement
+    # Navigation
+    if st.button("Back to Dashboard"):
+        navigate_to("dashboard")
+        st.experimental_rerun()
+
+# Main application
+def main():
+    add_custom_css()
     
-    **Areas for Improvement:**
-    - Be more concise in responses to behavioral questions
-    - Further highlight measurable impacts and outcomes
-    - Provide more specific examples when discussing leadership experience
+    # Simple authentication check
+    if st.session_state.user is None and st.session_state.page not in ["login", "signup"]:
+        navigate_to("login")
     
-    Overall, your performance in this interview was strong. Continue focusing on highlighting 
-    specific achievements with measurable results and consider practicing more concise delivery 
-    for future interviews.
-    """)
-    
-    # Action buttons
-    col_a, col_b, col_c = st.columns([1, 1, 1])
-    with col_a:
-        if st.button("Download Report"):
-            st.info("In a real app, this would download a PDF of the interview results.")
-    with col_b:
-        if st.button("Share Results"):
-            st.info("In a real app, this would open options to share the results.")
-    with col_c:
-        if st.button("New Interview"):
-            st.session_state.interview_started = False
-            st.session_state.interview_completed = False
-            st.session_state.messages = []
-            st.session_state.current_question_index = 0
-            st.experimental_rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Render the appropriate page
+    if st.session_state.page == "login":
+        render_login_page()
+    elif st.session_state.page == "signup":
+        render_signup_page()
+    elif st.session_state.page == "dashboard":
+        render_dashboard()
+    elif st.session_state.page == "upload_cv":
+        render_upload_cv()
+    elif st.session_state.page == "interview":
+        render_interview()
+    elif st.session_state.page == "results":
+        render_results()
 
 if __name__ == "__main__":
     main()
