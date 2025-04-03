@@ -11,7 +11,7 @@ sys.path.append(str(root_dir))
 
 # Import modules from our project structure
 from utils.auth import login, register, logout
-from utils.session import init_session_state
+from utils.session import init_session_state, navigate_to
 
 # Configure the page
 st.set_page_config(
@@ -43,12 +43,16 @@ def main():
             st.markdown("## Navigation")
             if st.button("Dashboard", key="nav_dashboard"):
                 st.session_state.page = "dashboard"
+                st.rerun()
             if st.button("Upload CV", key="nav_upload"):
                 st.session_state.page = "upload_cv"
+                st.rerun()
             if st.button("Interview", key="nav_interview"):
                 st.session_state.page = "interview"
+                st.rerun()
             if st.button("Results", key="nav_results"):
                 st.session_state.page = "results"
+                st.rerun()
             
             st.markdown("---")
             if st.button("Sign Out", key="nav_logout"):

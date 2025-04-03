@@ -1,6 +1,7 @@
 
 import streamlit as st
 from utils.auth import register
+from utils.session import navigate_to
 
 def render_signup_page():
     st.markdown("<h1 class='page-title'>AI Interview Assistant</h1>", unsafe_allow_html=True)
@@ -26,7 +27,7 @@ def render_signup_page():
     st.markdown("<p>Already have an account?</p>", unsafe_allow_html=True)
     
     if st.button("Back to Login", key="goto_login"):
-        st.session_state.page = "login"
+        navigate_to("login")
         st.rerun()
     
     st.markdown("</div>", unsafe_allow_html=True)

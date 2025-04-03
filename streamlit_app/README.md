@@ -1,28 +1,35 @@
 
-# AI Interview Assistant - Streamlit Application
+# AI Interview Assistant
 
-This is a Streamlit-based application for conducting AI-powered job interviews, analyzing resumes, and providing feedback to candidates.
+A Streamlit application that helps job seekers prepare for interviews by:
+1. Uploading and analyzing their CV
+2. Conducting mock AI interviews
+3. Providing feedback and improvement suggestions
 
-## Features
+## Getting Started
 
-1. **User Authentication**
-   - Sign up and login functionality
-   - Session management
+### Prerequisites
+- Python 3.7+
+- pip or conda for package management
 
-2. **Resume/CV Upload**
-   - Upload and analysis of candidate resumes
-   - Support for PDF, DOCX, and DOC formats
+### Installation
 
-3. **AI Interview**
-   - Simulated interview experience with an AI interviewer
-   - Realistic question and answer interface
+1. Clone this repository
+```bash
+git clone https://github.com/yourusername/ai-interview-assistant.git
+cd ai-interview-assistant
+```
 
-4. **Results Analysis**
-   - Comprehensive feedback on interview performance
-   - Skill assessment with scores
-   - Question-by-question feedback
-   - Strengths and areas for improvement
-   - Option to download reports
+2. Install the required packages
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the application
+```bash
+cd streamlit_app
+streamlit run app.py
+```
 
 ## Project Structure
 
@@ -30,7 +37,6 @@ This is a Streamlit-based application for conducting AI-powered job interviews, 
 /streamlit_app/
     app.py              # Main application file
     requirements.txt    # Python dependencies
-    README.md           # Documentation
     /assets/            # Images and other static files
     /pages/             # For multi-page Streamlit application
         login.py
@@ -41,35 +47,23 @@ This is a Streamlit-based application for conducting AI-powered job interviews, 
         results.py
     /utils/             # Utility functions and helpers
         auth.py
-        session.py
         cv_processing.py
         interview.py
+        session.py
     /styles/            # Custom CSS styling
-        style.css       # Custom CSS overrides
-    /data/              # For storing data (if not using a database)
+        style.css
+    /data/              # For storing user data
         user_data.json
 ```
 
-## Setup Instructions
+## Features
+- User authentication (signup/login)
+- CV/resume upload and analysis
+- Interactive AI interviews with feedback
+- Comprehensive results and recommendations
+- Clean and responsive UI
 
-1. Install the required packages:
-   ```
-   pip install -r requirements.txt
-   ```
-
-2. Run the Streamlit application:
-   ```
-   cd streamlit_app
-   streamlit run app.py
-   ```
-
-3. Access the application in your web browser at http://localhost:8501
-
-## Note
-
-This is a demonstration application with simulated AI interview functionality. In a production environment, you would integrate with:
-
-- A real AI model for processing resumes and conducting interviews
-- A database for user management and storing interview results
-- Secure authentication systems
-- Cloud storage for resume files
+## Technologies Used
+- Streamlit for the web application
+- Python for backend processing
+- Custom CSS for styling
